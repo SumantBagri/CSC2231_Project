@@ -47,7 +47,3 @@ elif [ $ARCH = "x86_64" ]; then
 fi
 
 echo "L4T Base Image:   $BASE_IMAGE"
-
-if [[ "$(sudo docker images -q ${BASE_IMAGE} 2> /dev/null)" == "" ]]; then
-	echo "Pulling:	$BASE_IMAGE ..." && sudo docker pull $BASE_IMAGE
-fi
