@@ -4,7 +4,6 @@ set -e
 
 source scripts/docker_base.sh
 source scripts/opencv_version.sh
-source scripts/python_version.sh
 
 #
 # PyTorch 
