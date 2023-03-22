@@ -48,7 +48,6 @@ fi
 
 echo "L4T Base Image:   $BASE_IMAGE"
 
-if [[ "$(docker images -q myimage:mytag 2> /dev/null)" == "" ]]; then
-	echo "Pulling:	$BASE_IMAGE ..."
-	sudo docker pull $BASE_IMAGE
+if [[ "$(sudo docker images -q ${BASE_IMAGE} 2> /dev/null)" == "" ]]; then
+	echo "Pulling:	$BASE_IMAGE ..." && sudo docker pull $BASE_IMAGE
 fi
