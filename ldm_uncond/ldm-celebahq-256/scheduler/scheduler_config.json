@@ -1,0 +1,11 @@
+{
+  "_class_name": "DDIMScheduler",
+  "_diffusers_version": "0.0.4",
+  "beta_end": 0.0195,
+  "beta_schedule": "scaled_linear",
+  "beta_start": 0.0015,
+  "clip_sample": false,
+  "timestep_values": null,
+  "timesteps": 1000,
+  "trained_betas": null
+}
