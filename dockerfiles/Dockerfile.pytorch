@@ -112,13 +112,3 @@ ENV LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
 RUN echo "$PATH" && echo "$LD_LIBRARY_PATH"
 
 RUN pip3 install --no-cache-dir --verbose pycuda six
-
-#
-# JupyterLab
-#
-EXPOSE 8888
-RUN mkdir -p /opt/project
-
-RUN pip3 install --no-cache-dir jupyter -U && pip3 install --no-cache-dir jupyterlab
-
-CMD ["/bin/sh" "-c" "/bin/bash -c \"jupyter lab --ip 0.0.0.0 --port 8888 --allow-root --notebook-dir=/opt/project &> /var/log/jupyter.log\" & \techo \"allow 10 sec for JupyterLab to start @ http://$(hostname -I | cut -d' ' -f1):8888\" && \techo \"JupterLab logging location:  /var/log/jupyter.log  (inside the container)\" && \t/bin/bash"]
