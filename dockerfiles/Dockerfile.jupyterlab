@@ -4,9 +4,42 @@ FROM ${BASE_IMAGE}
 #
 # JupyterLab
 #
+
+# Install prerequisites
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+	nodejs \
+	libffi-dev \
+	libssl1.0-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+RUN pip3 install packaging
+
+# note - Pillow workaround required for running Jetpack 4.6.1 (with Python 3.6.9)
+ARG PILLOW_VERSION=pillow<7
+RUN pip3 install --no-cache-dir "${PILLOW_VERSION}"
+
+# Install Jupyter
+RUN pip3 install jupyter
+RUN pip3 install ipywidgets
+RUN jupyter nbextension enable --py widgetsnbextension
+
+# Install JupyterLab
+RUN pip3 install jupyterlab && jupyter serverextension enable --py jupyterlab
+
+# Setup Env and Config
+ENV JUPYTER_PASSWORD=jetson
+
+RUN jupyter lab --generate-config \
+	&& python3 -c "from notebook.auth.security import set_password; set_password('${JUPYTER_PASSWORD}', '/root/.jupyter/jupyter_notebook_config.json')"
+
+# Install additional Python packages (as required)
+RUN pip3 install matplotlib
+
+# Expose Jupyter port & cmd
 EXPOSE 8888
+
 RUN mkdir -p /opt/project
 
-RUN pip3 install --no-cache-dir jupyter -U && pip3 install --no-cache-dir jupyterlab
-
-CMD ["/bin/sh" "-c" "/bin/bash -c \"jupyter lab --ip 0.0.0.0 --port 8888 --allow-root --notebook-dir=/opt/project &> /var/log/jupyter.log\" & \techo \"allow 10 sec for JupyterLab to start @ http://$(hostname -I | cut -d' ' -f1):8888\" && \techo \"JupterLab logging location:  /var/log/jupyter.log  (inside the container)\" && \t/bin/bash"]
+CMD jupyter lab --ip 0.0.0.0 --port 8888 --allow-root  --no-browser --notebook-dir=/opt/project &> /var/log/jupyter.log && echo allow 10 sec for JupyterLab to start @ http://$(hostname -I | cut -d' ' -f1):8888 \(password ${JUPYTER_PASSWORD}\) && echo JupterLab logging location:  /var/log/jupyter.log  \(inside the container\) && /bin/bash
