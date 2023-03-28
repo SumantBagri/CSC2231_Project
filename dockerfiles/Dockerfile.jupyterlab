@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=trapdoor20/csc2231:v1
+ARG BASE_IMAGE=nvcr.io/nvidia/l4t-pytorch:r32.7.1-pth1.10-py3
 FROM ${BASE_IMAGE}
 
 #
