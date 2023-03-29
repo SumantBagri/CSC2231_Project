@@ -18,7 +18,7 @@ def betas_for_alpha_bar(num_diffusion_timesteps, max_beta=0.999) -> torch.Tensor
 
 
 def reverse_1d_tensor(arr: torch.Tensor) -> torch.Tensor:
-    return torch.fliplr(torch.unsqueeze(arr, 0)).squeeze()
+    return torch.flip(arr, (0,))
 
 
 class EulerAncestralDiscreteScheduler:

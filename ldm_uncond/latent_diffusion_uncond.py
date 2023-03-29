@@ -42,3 +42,11 @@ class LDMPipeline(torch.nn.Module):
             image_processed = image_processed.clamp(0, 255)
 
             return image_processed
+    
+    def warmup(self):
+        tmp = self.num_inference_steps
+        self.num_inference_steps = 2
+        noise = torch.randn((1, 3, 64, 64), dtype=self.unet.dtype, device=self.unet.device)
+        self(noise)
+        self.num_inference_steps = tmp
+        
