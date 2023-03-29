@@ -42,7 +42,13 @@ RUN apt-get update && \
 	libprotobuf-dev protobuf-compiler && \
    rm -rf /var/lib/apt/lists/* \
    && apt-get clean
+
 RUN pip3 install protobuf==3.19.6 onnx
+
+# Install tensorrt
+COPY wheels/tensorrt-8.2.2.1-cp36-none-linux_aarch64.whl /tmp/
+
+RUN pip3 install /tmp/tensorrt-8.2.2.1-cp36-none-linux_aarch64.whl 
 
 # Expose Jupyter port & cmd
 EXPOSE 8888
