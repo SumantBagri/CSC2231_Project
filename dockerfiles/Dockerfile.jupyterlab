@@ -35,8 +35,14 @@ ENV JUPYTER_PASSWORD=jetson
 RUN jupyter lab --generate-config \
 	&& python3 -c "from notebook.auth.security import set_password; set_password('${JUPYTER_PASSWORD}', '/root/.jupyter/jupyter_notebook_config.json')"
 
-# Install additional Python packages (as required)
+# Install additional packages (as required)
 RUN pip3 install matplotlib
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+	libprotobuf-dev protobuf-compiler && \
+   rm -rf /var/lib/apt/lists/* \
+   && apt-get clean
+RUN pip3 install protobuf==3.19.6 onnx
 
 # Expose Jupyter port & cmd
 EXPOSE 8888
