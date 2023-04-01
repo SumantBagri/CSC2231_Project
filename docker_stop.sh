@@ -1,1 +1,1 @@
-scripts/docker_stop.sh
+scripts/docker/docker_stop.sh

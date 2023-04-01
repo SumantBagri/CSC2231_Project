@@ -1,2 +1,5 @@
 __pycache__
 *.bin
+.onnx
+.trt
+.ts
