@@ -24,16 +24,16 @@ class LDMPipeline(torch.nn.Module):
 		with open(scheduler_root + "scheduler_config.json", 'r') as f:
 			scheduler_config = json.load(f)
 
-        #----------------------------------------------------------------------------------------------------#
-        #----------------------------------------------------------------------------------------------------#
+		#----------------------------------------------------------------------------------------------------#
+		#----------------------------------------------------------------------------------------------------#
 
 		# Initalize model components from config
 		self.unet = UNet2DModel(**unet_config)
 		self.vqvae = VQModel(**vqvae_config)
 		self.scheduler = DDIMScheduler(**scheduler_config)
 
-        #----------------------------------------------------------------------------------------------------#
-        #----------------------------------------------------------------------------------------------------#
+		#----------------------------------------------------------------------------------------------------#
+		#----------------------------------------------------------------------------------------------------#
 
 		# Load state dictionary for UNet
 		unet_state_dict = torch.load(unet_root + "diffusion_pytorch_model.bin", map_location='cpu')
@@ -114,4 +114,24 @@ class LDMPipeline(torch.nn.Module):
 		noise = torch.randn((1, 3, 64, 64), dtype=self.unet.dtype, device=self.unet.device)
 		self(noise)
 		self.num_inference_steps = tmp
+	
+	@torch.inference_mode()
+	@torch.autocast("cuda")
+	def export_unet_to_onnx(self):
+		inputs = torch.randn((1, 3, 64, 64), dtype=self.unet.dtype, device=self.unet.device),\
+				 torch.randn(1, dtype=self.unet.dtype, device=self.unet.device)
+		
+		print('Starting export to onnx...')
+		
+		# Export the model
+		torch.onnx.export(self.unet,                 			  # model being run
+						  inputs,                    			  # model input (or a tuple for multiple inputs)
+						  "uldm_unet_fp16.onnx",     			  # where to save the model (can be a file or file-like object)
+						  export_params=True,        			  # store the trained parameter weights inside the model file
+						  opset_version=15,          			  # the ONNX version to export the model to
+						  do_constant_folding=True,  			  # whether to execute constant folding for optimization
+						  verbose=False,             			  # set verbosity
+						  input_names = ['input_0', 'input_1'],   # the model's input names
+						  output_names = ['output_0'] 			  # the model's output names
+						  )		
 		
