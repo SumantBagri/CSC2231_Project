@@ -136,11 +136,27 @@ class LDMPipeline(torch.nn.Module):
 						  output_names = ['output_0'] 			  # the model's output names
 						  )
 		
-	def load_optimized_unet(self, fname):
+	def load_optimized_unet(self, fname, save_torch=False):
 		DTYPE = self.unet.dtype
 		DEVICE = self.unet.device
-		self.unet = torch.jit.load(fname)
+		
+		# Load from TorchScript
+		try:
+			self.unet = torch.jit.load(fname)
+			print("Loaded torchscript file successfully!")
+		except Exception as e:
+			print(f"Error while loading file: {e}")
+		
+		if save_torch:
+			save_path = fname.split('.')[0]+".pt"
+			print(f"Saving UNet to: {save_path}")
+			unet_scripted = torch.jit.script(self.unet)
+			unet_scripted.save(save_path)
+		
+		# Convert to original dtype and load to device
 		self.unet.to(dtype=DTYPE, device=DEVICE)
+
+		# Set dtype and device variables (used in forward() call)
 		self.unet.dtype = DTYPE
 		self.unet.device = DEVICE
 		
