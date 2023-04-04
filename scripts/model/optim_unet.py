@@ -1,3 +1,4 @@
+import sys
 import torch
 import torch.onnx
 
@@ -11,4 +12,7 @@ if __name__ == '__main__':
 
     diffusion_pipeline = diffusion_pipeline.to(device=DEVICE, dtype=DTYPE)
 
-    diffusion_pipeline.export_unet_to_onnx()
+    if len(sys.argv) > 1:
+        diffusion_pipeline.export_unet_to_onnx(fname=sys.argv[1])
+    else:
+        diffusion_pipeline.export_unet_to_onnx()

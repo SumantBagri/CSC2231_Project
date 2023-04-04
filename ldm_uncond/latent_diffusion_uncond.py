@@ -1,6 +1,7 @@
 import json
 import re
 import torch
+import torch_tensorrt
 
 from collections import OrderedDict
 from .model.unet import UNet2DModel
@@ -90,7 +91,7 @@ class LDMPipeline(torch.nn.Module):
 			for t in self.scheduler.timesteps:
 				print(f"Timestep = {t.item()}\r", end="")
 
-				residual = self.unet(image, t)
+				residual = self.unet(image, t.to(dtype=self.unet.dtype, device=self.unet.device))
 
 				# compute previous image x_t according to DDIM formula
 				prev_image = self.scheduler.step(residual, t, image, eta=0.0)[0]
@@ -117,7 +118,7 @@ class LDMPipeline(torch.nn.Module):
 	
 	@torch.inference_mode()
 	@torch.autocast("cuda")
-	def export_unet_to_onnx(self):
+	def export_unet_to_onnx(self, fname="uldm_unet_fp16.onnx"):
 		inputs = torch.randn((1, 3, 64, 64), dtype=self.unet.dtype, device=self.unet.device),\
 				 torch.randn(1, dtype=self.unet.dtype, device=self.unet.device)
 		
@@ -126,12 +127,20 @@ class LDMPipeline(torch.nn.Module):
 		# Export the model
 		torch.onnx.export(self.unet,                 			  # model being run
 						  inputs,                    			  # model input (or a tuple for multiple inputs)
-						  "uldm_unet_fp16.onnx",     			  # where to save the model (can be a file or file-like object)
+						  fname,     			  # where to save the model (can be a file or file-like object)
 						  export_params=True,        			  # store the trained parameter weights inside the model file
 						  opset_version=13,          			  # the ONNX version to export the model to
 						  do_constant_folding=True,  			  # whether to execute constant folding for optimization
 						  verbose=False,             			  # set verbosity
 						  input_names = ['input_0', 'input_1'],   # the model's input names
 						  output_names = ['output_0'] 			  # the model's output names
-						  )		
+						  )
+		
+	def load_optimized_unet(self, fname):
+		DTYPE = self.unet.dtype
+		DEVICE = self.unet.device
+		self.unet = torch.jit.load(fname)
+		self.unet.to(dtype=DTYPE, device=DEVICE)
+		self.unet.dtype = DTYPE
+		self.unet.device = DEVICE
 		
