@@ -81,8 +81,6 @@ class LDMPipeline(torch.nn.Module):
 
 	@torch.no_grad()
 	def forward(self, noise):
-		# noise = torch.randn((1, 3, 64, 64))
-
 		# set inference steps for DDIM
 		self.scheduler.set_timesteps(num_inference_steps=self.num_inference_steps)
 
