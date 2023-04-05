@@ -9,7 +9,7 @@ class PowerReader:
         if os.path.exists(self.log_file_path):
             os.remove(self.log_file_path)
 
-        self.cmd = "sudo tegrastats --interval 250 --logfile " + self.log_file_path
+        self.cmd = "tegrastats --interval 250 --logfile " + self.log_file_path
 
         self.pattern = r"POM_5V_IN (\d+)/\d+ POM_5V_GPU (\d+)/\d+ POM_5V_CPU (\d+)/\d+"
 
@@ -38,6 +38,7 @@ class PowerReader:
     def stop(self) -> None:
         self.process.terminate()
         self._parse_data()
+        os.remove(self.log_file_path)
 
     def print_vals(self) -> None:
         "", "POM_5V_GPU max (mW)", "POM_5V_CPU max (mW)", "POM_5V_IN avg (mW)", "POM_5V_GPU avg (mW)", "POM_5V_CPU avg (mW)"
