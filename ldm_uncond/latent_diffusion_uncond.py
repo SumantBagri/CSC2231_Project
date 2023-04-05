@@ -1,7 +1,7 @@
 import json
 import re
 import torch
-import torch_tensorrt
+# import torch_tensorrt
 
 from collections import OrderedDict
 from .model.unet import UNet2DModel
@@ -140,7 +140,7 @@ class LDMPipeline(torch.nn.Module):
 		
 		# Load from TorchScript
 		try:
-			self.unet = torch.jit.load(fname)
+			self.unet = torch.jit.load(fname, map_location=torch.device('cpu'))
 			print("Loaded torchscript file successfully!")
 		except Exception as e:
 			print(f"Error while loading file: {e}")
