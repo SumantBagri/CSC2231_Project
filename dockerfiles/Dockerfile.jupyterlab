@@ -50,6 +50,13 @@ COPY wheels/tensorrt-8.2.2.1-cp36-none-linux_aarch64.whl /tmp/
 
 RUN pip3 install /tmp/tensorrt-8.2.2.1-cp36-none-linux_aarch64.whl 
 
+# Install memory_profiler
+
+RUN pip3 install memory_profiler
+
+# Copy tegrastats
+COPY tegrastats /usr/bin/
+
 # Expose Jupyter port & cmd
 EXPOSE 8888
 
