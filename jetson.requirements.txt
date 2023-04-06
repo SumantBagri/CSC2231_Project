@@ -1,5 +1,5 @@
-/opt/TensorRT-8.2.2.1/python/tensorrt-8.2.2.1-cp36-none-linux_x86_64.whl
-/opt/packages/torch_tensorrt-1.0.0-cp36-cp36m-linux_x86_64.whl
+wheels/tensorrt-8.2.2.1-cp36-none-linux_x86_64.whl
+wheels/torch_tensorrt-1.0.0-cp36-cp36m-linux_x86_64.whl
 anyio==3.6.2
 appdirs==1.4.4
 argon2-cffi==21.3.0
