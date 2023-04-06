@@ -55,11 +55,22 @@ RUN pip3 install /tmp/tensorrt-8.2.2.1-cp36-none-linux_aarch64.whl
 RUN pip3 install memory_profiler
 
 # Install torch-tensorrt
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+	openjdk-8-jre openjdk-8-jdk && \
+   rm -rf /var/lib/apt/lists/* \
+   && apt-get clean
+
 COPY bin/bazel /usr/local/bin/
 
-COPY TensorRT /tmp/
+COPY TensorRT/ /tmp/TensorRT/
 
-RUN cd /tmp/TensorRT/py/ && python3 setup.py install --use-cxx11-abi
+RUN ls -la /tmp/TensorRT/
+
+#RUN /usr/local/bin/bazel build //:libtorchtrt --platforms //toolchains:jetpack_4.6
+
+RUN cd /tmp/TensorRT/py/ && \
+    python3 setup.py install --use-cxx11-abi
 
 # Copy tegrastats
 COPY bin/tegrastats /usr/bin/
@@ -71,5 +82,7 @@ RUN rm -rf /tmp/*
 EXPOSE 8888
 
 RUN mkdir -p /opt/project
+
+WORKDIR /opt/project
 
 CMD jupyter lab --ip 0.0.0.0 --port 8888 --allow-root  --no-browser --notebook-dir=/opt/project &> /var/log/jupyter.log && echo allow 10 sec for JupyterLab to start @ http://$(hostname -I | cut -d' ' -f1):8888 \(password ${JUPYTER_PASSWORD}\) && echo JupterLab logging location:  /var/log/jupyter.log  \(inside the container\) && /bin/bash
