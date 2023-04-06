@@ -1,7 +1,7 @@
 import json
 import re
 import torch
-# import torch_tensorrt
+import torch_tensorrt
 
 from collections import OrderedDict
 from .model.unet import UNet2DModel

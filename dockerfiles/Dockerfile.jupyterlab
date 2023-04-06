@@ -54,8 +54,18 @@ RUN pip3 install /tmp/tensorrt-8.2.2.1-cp36-none-linux_aarch64.whl
 
 RUN pip3 install memory_profiler
 
+# Install torch-tensorrt
+COPY bin/bazel /usr/local/bin/
+
+COPY TensorRT /tmp/
+
+RUN cd /tmp/TensorRT/py/ && python3 setup.py install --use-cxx11-abi
+
 # Copy tegrastats
-COPY tegrastats /usr/bin/
+COPY bin/tegrastats /usr/bin/
+
+# Cleanup
+RUN rm -rf /tmp/*
 
 # Expose Jupyter port & cmd
 EXPOSE 8888
