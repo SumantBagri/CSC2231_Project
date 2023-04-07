@@ -65,12 +65,13 @@ COPY bin/bazel /usr/local/bin/
 
 COPY TensorRT/ /tmp/TensorRT/
 
-RUN ls -la /tmp/TensorRT/
+RUN cd /tmp/TensorRT/py/ && python3 setup.py bdist_wheel --use-cxx11-abi
 
-#RUN /usr/local/bin/bazel build //:libtorchtrt --platforms //toolchains:jetpack_4.6
+RUN pip3 install /tmp/TensorRT/py/dist/*.whl
 
-RUN cd /tmp/TensorRT/py/ && \
-    python3 setup.py install --use-cxx11-abi
+ENV PATH /usr/local/lib/python3.6/dist-packages/torch_tensorrt/bin/:${PATH}
+
+ENV LD_LIBRARY_PATH /usr/local/lib/python3.6/dist-packages/torch/lib/:${LD_LIBRARY_PATH}
 
 # Copy tegrastats
 COPY bin/tegrastats /usr/bin/
