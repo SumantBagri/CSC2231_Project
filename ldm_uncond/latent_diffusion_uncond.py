@@ -103,13 +103,11 @@ class LDMPipeline(torch.nn.Module):
 
 				# x_t-1 -> x_t
 				image = prev_image
-			torch.cuda.synchronize()
 			self.reader.metrics['lat'].maxvals[0] = round(time.time()-stime,4)
 			
 			# decode image with vae
 			stime = time.time()
 			image = self.vqvae.decode(image)
-			torch.cuda.synchronize()
 			self.reader.metrics['lat'].maxvals[1] = round(time.time()-stime,4)
 
 			# process image

@@ -59,7 +59,6 @@ class BaseEvaluator:
             # perform profiling
             self.reader.start()
             model(inp)
-            torch.cuda.synchronize()
             self.reader.stop()
             # write to csv files
             self.reader.write_row(i, 'pwr') # write power to file

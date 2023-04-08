@@ -73,7 +73,7 @@ class BaseReader:
             writer.writerow(res)
     
     def probe(self) -> list:
-        result = subprocess.run(self.probe_cmd.split(' '), stdout=subprocess.PIPE)
+        result = subprocess.run(str.encode(self.probe_cmd), shell=True, stdout=subprocess.PIPE)
         result = result.stdout.decode('utf-8')
         return result
 
@@ -132,8 +132,8 @@ class JetsonReader(BaseReader):
                  lat_save_path: str,
                  logpath: str = "tegrastat.txt") -> None:
         super().__init__(pwr_save_path, mem_save_path, lat_save_path, logpath)
-        self.cmd = "tegrastats --interval 250 --logfile " + self.log_file_path
-        self.probe_cmd = "tegrastats --interval 0 | head -n 1"
+        self.cmd = "/usr/bin/tegrastats --interval 250 --logfile " + self.log_file_path
+        self.probe_cmd = "/usr/bin/tegrastats --interval 0 | head -n 1"
         
         # Set power attributes
         self.metrics['pwr'].pattern = r"POM_5V_IN (\d+)/\d+ POM_5V_GPU (\d+)/\d+ POM_5V_CPU (\d+)/\d+"
@@ -141,7 +141,7 @@ class JetsonReader(BaseReader):
                                        "PWR_IN_AVG", "PWR_CPU_AVG", "PWR_GPU_AVG"]
 
         # set memory attributes
-        self.metrics['mem'].pattern = r"[^I]RAM (\d+)/"
+        self.metrics['mem'].pattern = r"\bRAM (\d+)/"
         self.metrics['mem'].header = ["RUN", "MEM_MAX", "MEM_AVG"]
     
     def _parse_data(self) -> list:

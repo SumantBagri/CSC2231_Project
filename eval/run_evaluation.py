@@ -2,19 +2,17 @@
 
 import argparse
 import os
+import subprocess
+import sys
 import torch
 
 from ldm_uncond.latent_diffusion_uncond import LDMPipeline
 from evaluation import BaseEvaluator, ONNXEvaluator
 
-# Define hardware
-dev = "rtx_3070"
-
-
 ##============================##
 ## Baseline - 32bit Model     ##
 ##============================##
-def baseline():
+def baseline(dev):
     print("\033[4mRunning Baseline\033[0m\n\n")
 
     # Init evaluator
@@ -40,7 +38,7 @@ def baseline():
 ##======================================##
 ## Optimization 1 - JIT Compilation     ##
 ##======================================##
-def optim1():
+def optim1(dev):
     print("\n\n\033[4mRunning Optimization 1 - JIT Compilation\033[0m\n\n")
 
     # Init evaluator
@@ -67,7 +65,7 @@ def optim1():
 ##=============================================================##
 ## Optimization 2 - Quantization (16-bit) + JIT Compilation    ##
 ##=============================================================##
-def optim2():
+def optim2(dev):
     print("\n\n\033[4mRunning Optimization 2 - Quantization (16-bit) + JIT Compilation\033[0m\n\n")
 
     # Init evaluator
@@ -94,7 +92,7 @@ def optim2():
 ##=============================================================================================##
 ## Optimization 3 - ONNX Runtime (Graph optimizations + Transformer specific optimizations)    ##
 ##=============================================================================================##
-def optim3():
+def optim3(dev):
     print("\n\n\033[4mRunning Optimization 3 - ONNX Runtime (Graph optimizations + Transformer specific optimizations)\033[0m\n\n")
 
     # Init inputs and model
@@ -132,7 +130,7 @@ def optim3():
 ##=============================================================================================##
 ## Optimization 4 - TensorRT (Layer & Tensor fusion + Quantization (16-bit) + JIT Compilation) ##
 ##=============================================================================================##
-def optim4():
+def optim4(dev):
     print("\n\n\033[4mRunning Optimization 4 - TensorRT (Layer & Tensor fusion + Quantization (16-bit) + JIT Compilation)\033[0m\n\n")
 
     os.environ["CUDA_MODULE_LOADING"] = 'LAZY'
@@ -163,16 +161,16 @@ def optim4():
     torch.cuda.empty_cache()
 
 # Push metrics to github
-def push():
+def push(dev):
     try:
         os.system("git add output/eval_data/rtx_3070*")
-        os.system("git commit -m 'Evaluation datafiles updated (RTX 3070)'")
+        os.system(f"git commit -m 'Evaluation datafiles updated {dev}'")
         os.system("git push")
     except Exception as e:
         print(e)
     
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run evaluation pipeline on RTX 3070')
+    parser = argparse.ArgumentParser(description='Runs evaluation pipeline')
     parser.add_argument('-b', '--baseline', action='store_true', help='Run baseline function')
     parser.add_argument('-o1', '--optim1', action='store_true', help='Run optim1 function')
     parser.add_argument('-o2', '--optim2', action='store_true', help='Run optim2 function')
@@ -182,25 +180,40 @@ if __name__ == "__main__":
     parser.add_argument('-gp', '--git-push', action='store_true', help="Push all the output files to github")
     args = parser.parse_args()
 
-    print(args)
-    exit
+    if sys.argv[0] != "CUDA_LAUNCH_BLOCKING=1":
+        print("Inference script should be run as:")
+        print("\t$ CUDA_LAUNCH_BLOCKING=1 ./run_evaluation.py [OPTIONS]")
+        exit(1)
+
+    os.system('sudo update-pciids > /dev/null 2>&1')
+    lshw_out = subprocess.check_output('sudo lshw', shell=True).decode('utf-8').replace("\n", "")
+    if 'rtx 3070' in lshw_out.lower():
+        dev = 'rtx_3070'
+    elif 'jetson nano' in lshw_out.lower():
+        dev = 'jetson_nano'
+    else:
+        print("No capable devices found!")
+        exit(1)
 
     if args.baseline:
-        baseline()
-    if args.optim1:
+        baseline(dev)
+    if args.optim1 and dev == 'rtx_3070':
         optim1()
-    if args.optim2:
+    if args.optim2 and dev == 'rtx_3070':
         optim2()
-    if args.optim3:
+    if args.optim3 and dev == 'rtx_3070':
         optim3()
-    if args.optim4:
+    if args.optim4 and dev == 'rtx_3070':
         optim4()
     if args.all:
         baseline()
-        optim1()
-        optim2()
-        optim3()
-        optim4()
+        if dev == 'rtx_3070':
+            optim1()
+            optim2()
+            optim3()
+            optim4()
     if args.git_push:
         push()
+    
+    exit(0)
 
