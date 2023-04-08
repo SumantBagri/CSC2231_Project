@@ -173,19 +173,26 @@ def get_device():
     # Check for RTX devices
     print("Checking for RTX devices...", end=' ')
     os.system('update-pciids > /dev/null 2>&1')
-    lshw_out = subprocess.check_output('/usr/bin/lshw', shell=True).decode('utf-8').replace("\n", "")
-    if 'rtx 3070' in lshw_out.lower():
-        print("\033[92mSuccess\033[0m")
-        return 'rtx_3070'
-    else:
-        print("\033[91mFailed\033[0m")
+    try:
+        lshw_out = subprocess.check_output('lshw', shell=True).decode('utf-8').replace("\n", "")
+        if 'rtx 3070' in lshw_out.lower():
+            print("\033[92mSuccess\033[0m\n")
+            return 'rtx_3070'
+        else:
+            raise
+    except:
+        print("\033[91mFailed\033[0m\n")
     # Check for Jetson devices
-    print("Checking for Jetson devices...", end=' ')
-    if 'jetson nano' in os.environ['DEVICE']:
-        print("\033[92mSuccess\033[0m")
-        return 'jetson_nano'
-    else:
-        print("\033[91mFailed\033[0m")
+    try:
+        print("Checking for Jetson devices...", end=' ')
+        if os.environ.get('DEVICE').lower() == "jetson_nano":
+            print("\033[92mSuccess\033[0m\n")
+            return 'jetson_nano'
+        else:
+            raise
+    except:
+        print("\033[91mFailed\033[0m\n")
+        pass
     # No other devices supported (yet)
     return
 
@@ -212,26 +219,26 @@ if __name__ == "__main__":
         exit(1)
 
     print("========================================================")
-    print(f"\n\n\033[4mRunning Evaluations for device: {dev}\033[0m")
+    print(f"\033[4mRunning Evaluations for device: {dev}\033[0m")
     print("========================================================")
 
     if args.baseline:
         baseline(dev)
     if args.optim1 and dev == 'rtx_3070':
-        optim1()
+        optim1(dev)
     if args.optim2 and dev == 'rtx_3070':
-        optim2()
+        optim2(dev)
     if args.optim3 and dev == 'rtx_3070':
-        optim3()
+        optim3(dev)
     if args.optim4 and dev == 'rtx_3070':
-        optim4()
+        optim4(dev)
     if args.all:
-        baseline()
+        baseline(dev)
         if dev == 'rtx_3070':
-            optim1()
-            optim2()
-            optim3()
-            optim4()
+            optim1(dev)
+            optim2(dev)
+            optim3(dev)
+            optim4(dev)
     if args.git_push:
         push()
     

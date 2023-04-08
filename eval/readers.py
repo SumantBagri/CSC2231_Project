@@ -187,6 +187,6 @@ class JetsonReader(BaseReader):
         for name, stat in self.metrics.items():
             if name == 'mem':
                 stat.bval = parsed_res[name]
-            print(f"{name.upper()} : {stat.pval} {self.units[name]}")
+            print(f"{name.upper()} : {stat.bval} {self.units[name]}")
         
 
