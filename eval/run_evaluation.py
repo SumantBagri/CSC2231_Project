@@ -240,7 +240,7 @@ if __name__ == "__main__":
             optim3(dev)
             optim4(dev)
     if args.git_push:
-        push()
+        push(dev)
     
     exit(0)
 
