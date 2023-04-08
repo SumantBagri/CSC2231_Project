@@ -2,7 +2,7 @@ import onnxruntime as ort
 import os
 import torch
 
-from readers import JetsonReader, RTXReader
+from eval.readers import JetsonReader, RTXReader
 
 class BaseEvaluator:
     def __init__(self, 
@@ -78,8 +78,10 @@ class ONNXEvaluator(BaseEvaluator):
 
         self.pad = " "*100
         print("Creating Inference Session..."+self.pad+"\r",end='')
+        sess_opts = ort.SessionOptions()
+        sess_opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_EXTENDED
         self.reader.probe()
-        self.sess = ort.InferenceSession(mpath, providers=self.providers)
+        self.sess = ort.InferenceSession(mpath, sess_options=sess_opts, providers=self.providers)
         print("Inference Session Created!"+self.pad)
 
     def __del__(self):

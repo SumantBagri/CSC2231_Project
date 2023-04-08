@@ -5,7 +5,7 @@ import torch_tensorrt
 import time
 
 from collections import OrderedDict
-from readers import BaseReader
+from eval.readers import BaseReader
 from .model.unet import UNet2DModel
 from .model.vq import VQModel
 from .model.ddim_scheduler import DDIMScheduler
@@ -144,9 +144,33 @@ class LDMPipeline(torch.nn.Module):
 						  do_constant_folding=True,  			  # whether to execute constant folding for optimization
 						  verbose=False,             			  # set verbosity
 						  input_names = ['input_0', 'input_1'],   # the model's input names
-						  output_names = ['output_0'] 			  # the model's output names
-						  )
+						  output_names = ['output_0'], 			  # the model's output names
+                          dynamic_axes={'input_0' : {0 : 'batch_size'},    # variable length axes
+                                        'input_1' : {0 : 'batch_size'},
+										'output_0': {0 : 'batch_size'}}
+						)
+
+	@torch.inference_mode()
+	@torch.autocast("cuda")
+	def export_pipeline_to_onnx(self, fname="uldm_fp16.onnx"):
+		inputs = torch.randn((1, 3, 64, 64), dtype=self.unet.dtype, device=self.unet.device)
+
+		print('Starting export to onnx...')
 		
+		# Export the model
+		torch.onnx.export(self,                 			      # model being run
+						  inputs,                    			  # model input (or a tuple for multiple inputs)
+						  fname,     			  # where to save the model (can be a file or file-like object)
+						  export_params=True,        			  # store the trained parameter weights inside the model file
+						  opset_version=13,          			  # the ONNX version to export the model to
+						  do_constant_folding=True,  			  # whether to execute constant folding for optimization
+						  verbose=False,             			  # set verbosity
+						  input_names = ['input_0'],   # the model's input names
+						  output_names = ['output_0'], 			  # the model's output names
+                          dynamic_axes={'input_0' : {0 : 'batch_size'},    # variable length axes
+										'output_0': {0 : 'batch_size'}}
+						)
+
 	def load_optimized_unet(self, fname, save_torch=False):
 		DTYPE = self.unet.dtype
 		DEVICE = self.unet.device

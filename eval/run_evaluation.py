@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
+import configparser
 import os
 import subprocess
-import sys
 import torch
 
 from ldm_uncond.latent_diffusion_uncond import LDMPipeline
@@ -38,7 +38,7 @@ def baseline(dev):
 ##======================================##
 ## Optimization 1 - JIT Compilation     ##
 ##======================================##
-def optim1(dev):
+def optim1(dev, infile):
     print("\n\n\033[4mRunning Optimization 1 - JIT Compilation\033[0m\n\n")
 
     # Init evaluator
@@ -52,7 +52,7 @@ def optim1(dev):
     DEVICE = torch.device('cuda')
 
     noise = torch.randn((1, 3, 64, 64), dtype=DTYPE, device=DEVICE)
-    torchscript_model = torch.jit.load("output/optim/model_jit_fp32_cuda.ptl")
+    torchscript_model = torch.jit.load(infile)
 
     # Evaluate optimization-1
     with torch.no_grad():
@@ -65,7 +65,7 @@ def optim1(dev):
 ##=============================================================##
 ## Optimization 2 - Quantization (16-bit) + JIT Compilation    ##
 ##=============================================================##
-def optim2(dev):
+def optim2(dev, infile):
     print("\n\n\033[4mRunning Optimization 2 - Quantization (16-bit) + JIT Compilation\033[0m\n\n")
 
     # Init evaluator
@@ -79,7 +79,7 @@ def optim2(dev):
     DEVICE = torch.device('cuda')
 
     noise = torch.randn((1, 3, 64, 64), dtype=DTYPE, device=DEVICE)
-    torchscript_model = torch.jit.load("output/optim/model_jit_fp16_cuda.ptl")
+    torchscript_model = torch.jit.load(infile)
 
     # Evaluate optimization-2
     with torch.no_grad():
@@ -92,7 +92,7 @@ def optim2(dev):
 ##=============================================================================================##
 ## Optimization 3 - ONNX Runtime (Graph optimizations + Transformer specific optimizations)    ##
 ##=============================================================================================##
-def optim3(dev):
+def optim3(dev, infile):
     print("\n\n\033[4mRunning Optimization 3 - ONNX Runtime (Graph optimizations + Transformer specific optimizations)\033[0m\n\n")
 
     # Init inputs and model
@@ -100,37 +100,18 @@ def optim3(dev):
 
     noise = torch.randn((1, 3, 64, 64), dtype=DTYPE)
 
-    # #### Vanilla ONNX
-    print("\tVanilla ONNX")
-
-    # Init evaluator
-    optim3_1 = ONNXEvaluator("output/optim/model_onnx_fp32_cpu.onnx", dev=dev, perf_cls="onnx_vanilla")
-    optim3_1.evaluate(noise)
-
-    del optim3_1
-
     # #### Optimized ONNX
-    print("\tOptimized ONNX")
-
     # Init evaluator
-    optim3_2 = ONNXEvaluator("output/optim/model_onnx_fp32_cpu_optimized.onnx", dev=dev, perf_cls="onnx_optim")
-    optim3_2.evaluate(noise)
+    optim3_2 = ONNXEvaluator(infile, dev=dev, perf_cls="onnx_optim")
+    with torch.no_grad():
+        optim3_2.evaluate(noise)
 
     del optim3_2
-
-    # #### Transformer Optimized ONNX
-    print("\tTransformer-Optimized ONNX")
-    
-    # Init evaluator
-    optim3_3 = ONNXEvaluator("output/optim/model_onnx_fp32_cpu_optimized_tf.onnx", dev=dev, perf_cls="onnx_optim_tf")
-    optim3_3.evaluate(noise)
-
-    del optim3_3
 
 ##=============================================================================================##
 ## Optimization 4 - TensorRT (Layer & Tensor fusion + Quantization (16-bit) + JIT Compilation) ##
 ##=============================================================================================##
-def optim4(dev):
+def optim4(dev, infile):
     print("\n\n\033[4mRunning Optimization 4 - TensorRT (Layer & Tensor fusion + Quantization (16-bit) + JIT Compilation)\033[0m\n\n")
 
     os.environ["CUDA_MODULE_LOADING"] = 'LAZY'
@@ -149,7 +130,7 @@ def optim4(dev):
     optimized_diffusion_pipeline = LDMPipeline(reader=optim4_evaluator.reader)
 
     optimized_diffusion_pipeline = optimized_diffusion_pipeline.to(device=DEVICE, dtype=DTYPE)
-    optimized_diffusion_pipeline.load_optimized_unet("output/optim/uldm_unet_fp16_sim.ts")
+    optimized_diffusion_pipeline.load_optimized_unet(infile)
 
     noise = torch.randn((1, 3, 64, 64), dtype=DTYPE, device=DEVICE)
 
@@ -169,6 +150,7 @@ def push(dev):
     except Exception as e:
         print(e)
 
+# Get hardware device info
 def get_device():
     # Check for RTX devices
     print("Checking for RTX devices...", end=' ')
@@ -198,15 +180,23 @@ def get_device():
 
 
 if __name__ == "__main__":
+    # Parse command-line arguments
     parser = argparse.ArgumentParser(description='Runs evaluation pipeline')
-    parser.add_argument('-b', '--baseline', action='store_true', help='Run baseline function')
-    parser.add_argument('-o1', '--optim1', action='store_true', help='Run optim1 function')
-    parser.add_argument('-o2', '--optim2', action='store_true', help='Run optim2 function')
-    parser.add_argument('-o3', '--optim3', action='store_true', help='Run optim3 function')
-    parser.add_argument('-o4', '--optim4', action='store_true', help='Run optim4 function')
-    parser.add_argument('-a', '--all', action='store_true', help='Run all functions')
-    parser.add_argument('-gp', '--git-push', action='store_true', help="Push all the output files to github")
+    parser.add_argument('-c', '--config', type=str, help='Path to config file')
     args = parser.parse_args()
+
+    # Read config file
+    config = configparser.ConfigParser()
+    config.read(args.config)
+
+    # Parse arguments from config file
+    baseline = config.getboolean('arguments', 'baseline')
+    o1_file = config.get('arguments', 'optim1', fallback=None)
+    o2_file = config.get('arguments', 'optim2', fallback=None)
+    o3_file = config.get('arguments', 'optim3', fallback=None)
+    o4_file = config.get('arguments', 'optim4', fallback=None)
+    all_functions = config.getboolean('arguments', 'all')
+    git_push = config.getboolean('arguments', 'git_push')
 
     if not os.environ.get('CUDA_LAUNCH_BLOCKING'):
         print("Inference script should be run as:")
@@ -222,24 +212,24 @@ if __name__ == "__main__":
     print(f"\033[4mRunning Evaluations for device: {dev}\033[0m")
     print("========================================================")
 
-    if args.baseline:
+    # Run pipeline based on arguments
+    if baseline:
         baseline(dev)
-    if args.optim1 and dev == 'rtx_3070':
-        optim1(dev)
-    if args.optim2 and dev == 'rtx_3070':
-        optim2(dev)
-    if args.optim3 and dev == 'rtx_3070':
-        optim3(dev)
-    if args.optim4 and dev == 'rtx_3070':
-        optim4(dev)
-    if args.all:
-        baseline(dev)
-        if dev == 'rtx_3070':
-            optim1(dev)
-            optim2(dev)
-            optim3(dev)
-            optim4(dev)
-    if args.git_push:
+    if o1_file:
+        optim1(dev, o1_file)
+    if o2_file:
+        optim2(dev, o2_file)
+    if o3_file:
+        optim3(dev, o3_file)
+    if o4_file:
+        optim4(dev, o4_file)
+    if all_functions:
+        baseline()
+        optim1(dev, o1_file)
+        optim2(dev, o2_file)
+        optim3(dev, o3_file)
+        optim4(dev, o4_file)        
+    if git_push:
         push(dev)
     
     exit(0)
