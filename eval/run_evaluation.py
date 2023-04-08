@@ -180,13 +180,13 @@ if __name__ == "__main__":
     parser.add_argument('-gp', '--git-push', action='store_true', help="Push all the output files to github")
     args = parser.parse_args()
 
-    if sys.argv[0] != "CUDA_LAUNCH_BLOCKING=1":
+    if not os.environ.get('CUDA_LAUNCH_BLOCKING'):
         print("Inference script should be run as:")
         print("\t$ CUDA_LAUNCH_BLOCKING=1 ./run_evaluation.py [OPTIONS]")
         exit(1)
 
-    os.system('sudo update-pciids > /dev/null 2>&1')
-    lshw_out = subprocess.check_output('sudo lshw', shell=True).decode('utf-8').replace("\n", "")
+    os.system('update-pciids > /dev/null 2>&1')
+    lshw_out = subprocess.check_output('/usr/bin/lshw', shell=True).decode('utf-8').replace("\n", "")
     if 'rtx 3070' in lshw_out.lower():
         dev = 'rtx_3070'
     elif 'jetson nano' in lshw_out.lower():
@@ -194,6 +194,10 @@ if __name__ == "__main__":
     else:
         print("No capable devices found!")
         exit(1)
+
+    print("========================================================")
+    print(f"\n\n\033[4mRunning Evaluations for device: {dev}\033[0m")
+    print("========================================================")
 
     if args.baseline:
         baseline(dev)
