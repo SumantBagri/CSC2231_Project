@@ -168,7 +168,28 @@ def push(dev):
         os.system("git push")
     except Exception as e:
         print(e)
-    
+
+def get_device():
+    # Check for RTX devices
+    print("Checking for RTX devices...", end=' ')
+    os.system('update-pciids > /dev/null 2>&1')
+    lshw_out = subprocess.check_output('/usr/bin/lshw', shell=True).decode('utf-8').replace("\n", "")
+    if 'rtx 3070' in lshw_out.lower():
+        print("\033[92mSuccess\033[0m")
+        return 'rtx_3070'
+    else:
+        print("\033[91mFailed\033[0m")
+    # Check for Jetson devices
+    print("Checking for Jetson devices...", end=' ')
+    if 'jetson nano' in os.environ['DEVICE']:
+        print("\033[92mSuccess\033[0m")
+        return 'jetson_nano'
+    else:
+        print("\033[91mFailed\033[0m")
+    # No other devices supported (yet)
+    return
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Runs evaluation pipeline')
     parser.add_argument('-b', '--baseline', action='store_true', help='Run baseline function')
@@ -185,13 +206,8 @@ if __name__ == "__main__":
         print("\t$ CUDA_LAUNCH_BLOCKING=1 ./run_evaluation.py [OPTIONS]")
         exit(1)
 
-    os.system('update-pciids > /dev/null 2>&1')
-    lshw_out = subprocess.check_output('/usr/bin/lshw', shell=True).decode('utf-8').replace("\n", "")
-    if 'rtx 3070' in lshw_out.lower():
-        dev = 'rtx_3070'
-    elif 'jetson nano' in lshw_out.lower():
-        dev = 'jetson_nano'
-    else:
+    dev = get_device()
+    if not dev:
         print("No capable devices found!")
         exit(1)
 
