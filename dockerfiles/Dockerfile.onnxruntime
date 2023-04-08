@@ -1,0 +1,11 @@
+ARG BASE_IMAGE=trapdoor20/csc2231:v3.1
+FROM ${BASE_IMAGE}
+
+# Install onnxruntime
+ARG ORT_URL=https://nvidia.box.com/shared/static/pmsqsiaw4pg9qrbeckcbymho6c01jj4z.whl
+ARG ORT_WHL=onnxruntime-1.11.0-cp36-cp36m-linux_aarch64.whl
+
+RUN wget --quiet --show-progress --progress=bar:force:noscroll --no-check-certificate ${ORT_URL} -O ${ORT_WHL} && \
+    pip3 install --no-cache-dir --verbose ${ORT_WHL} && \
+    rm ${ORT_WHL}
+
