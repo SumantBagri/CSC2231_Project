@@ -17,6 +17,7 @@ class BaseReader:
     def __init__(self,
                  pwr_save_path: str,
                  mem_save_path: str,
+                 lat_save_path: str,
                  logpath: str) -> None:
         self.log_file_path = logpath
         if os.path.exists(self.log_file_path):
@@ -25,13 +26,18 @@ class BaseReader:
         self.cmd = None
         self.probe_cmd = None
         self.metrics = {'pwr': Stat(),
-                        'mem': Stat()}
+                        'mem': Stat(),
+                        'lat': Stat()}
         self.units   = {'pwr': 'W',
-                        'mem': 'MB'}
+                        'mem': 'MB',
+                        'lat': 's'}
 
         # set save file paths
         self.metrics['pwr'].fpath = pwr_save_path
         self.metrics['mem'].fpath = mem_save_path
+        self.metrics['lat'].fpath = lat_save_path
+
+        self.metrics['lat'].header = ["RUN", "LAT_VAL"]
 
     def _parse_data(self) -> list:
         # Open the log file and read its contents
@@ -43,8 +49,10 @@ class BaseReader:
     def start(self) -> None:
         self.probe()
         self.process = subprocess.Popen(self.cmd.split())
+        self.metrics['lat'].bval = time.time()
 
     def stop(self) -> None:
+        self.metrics['lat'].maxvals = [round(time.time() - self.metrics['lat'].bval,4)]
         self.process.terminate()
         time.sleep(2)
         self._parse_data()
@@ -74,8 +82,9 @@ class RTXReader(BaseReader):
     def __init__(self,
                  pwr_save_path: str,
                  mem_save_path: str,
+                 lat_save_path: str,
                  logpath: str = "nvidiasmi.txt") -> None:
-        super().__init__(pwr_save_path, mem_save_path, logpath)
+        super().__init__(pwr_save_path, mem_save_path, lat_save_path, logpath)
         self.cmd = "nvidia-smi --query-gpu=memory.used,power.draw --format=csv,noheader -lms 250 -f " + self.log_file_path
         self.probe_cmd = "nvidia-smi --query-gpu=memory.used,power.draw --format=csv,noheader"
         
@@ -91,28 +100,28 @@ class RTXReader(BaseReader):
         log_contents = super()._parse_data()
         
         for _, stat in self.metrics.items():
-            # Find all matches for the regex pattern
-            matches = re.findall(stat.pattern, log_contents)
-
-            # Extract the values from each match
-            values = [round(float(match)) for match in matches]
-
-            # Peak values
-            stat.maxvals = [max(values) - stat.bval]
-
-            # Average values
-            stat.avgvals = [round(sum(values) / len(values)) - stat.bval]
+            # for pwr and mem
+            if stat.pattern:
+                # Find all matches for the regex pattern
+                matches = re.findall(stat.pattern, log_contents)
+                # Extract the values from each match
+                values = [round(float(match),4) for match in matches]
+                # Peak values
+                stat.maxvals = [max(values) - stat.bval]
+                # Average values
+                stat.avgvals = [round(sum(values) / len(values) - stat.bval,4)]
     
-    def probe(self) -> list:
+    def probe(self,print_stdout=False) -> list:
         result = super().probe()
         parsed_res = {
-            'pwr' : round(float(re.findall(self.metrics['pwr'].pattern, result)[0])),
-            'mem' : round(float(re.findall(self.metrics['mem'].pattern, result)[0]))
+            'pwr' : round(float(re.findall(self.metrics['pwr'].pattern, result)[0]),4),
+            'mem' : round(float(re.findall(self.metrics['mem'].pattern, result)[0]),4)
         }
         for name, stat in self.metrics.items():
             if name == 'mem':
                 stat.bval = parsed_res[name]
-            print(f"{name.upper()} : {stat.bval} {self.units[name]}")
+            if print_stdout and name != 'lat':
+                print(f"{name.upper()} : {stat.bval} {self.units[name]}")
 
 
 
@@ -120,8 +129,9 @@ class JetsonReader(BaseReader):
     def __init__(self,
                  pwr_save_path: str,
                  mem_save_path: str,
+                 lat_save_path: str,
                  logpath: str = "tegrastat.txt") -> None:
-        super().__init__(pwr_save_path, mem_save_path, logpath)
+        super().__init__(pwr_save_path, mem_save_path, lat_save_path, logpath)
         self.cmd = "tegrastats --interval 250 --logfile " + self.log_file_path
         self.probe_cmd = "tegrastats --interval 0 | head -n 1"
         
@@ -146,17 +156,19 @@ class JetsonReader(BaseReader):
 
         # Extract the POM and MEM values from each match
         pom_values = [
-            [int(match[0]), int(match[1]), int(match[2])] for match in matches_pwr
+            [round(float(match[0])),
+             round(float(match[1])),
+             round(float(match[2]))] for match in matches_pwr
         ]
-        mem_values = [int(match) for match in matches_mem]
+        mem_values = [round(float(match)) for match in matches_mem]
 
         # Peak POM/MEM values
-        pwr_stat.maxvals = [max(col) for col in zip(*pom_values)]
-        mem_stat.maxvals = [max(mem_values)]
+        pwr_stat.maxvals = [max(col) - pwr_stat.bval for col in zip(*pom_values)]
+        mem_stat.maxvals = [max(mem_values) - mem_stat.bval]
 
         # Average POM/MEM values
-        pwr_stat.avgvals = [round(sum(col) / len(col)) for col in zip(*pom_values)]
-        mem_stat.avgvals = [round(sum(mem_values) / len(mem_values))]
+        pwr_stat.avgvals = [round(sum(col) / len(col) - pwr_stat.bval, 4) for col in zip(*pom_values)]
+        mem_stat.avgvals = [round(sum(mem_values) / len(mem_values) - mem_stat.bval, 4)]
     
     def probe(self) -> None:
         result = super().probe()
@@ -165,8 +177,8 @@ class JetsonReader(BaseReader):
         match_mem = re.findall(self.metrics['mem'].pattern, result)
 
         parsed_res = {
-            'pwr' : [int(m)//1000 for m in match_pwr],
-            'mem' : int(match_mem[0])
+            'pwr' : [round(float(m)/1000,4) for m in match_pwr],
+            'mem' : round(float(match_mem[0]),4)
         }
         for name, stat in self.metrics.items():
             if name == 'mem':

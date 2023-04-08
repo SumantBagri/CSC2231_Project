@@ -96,8 +96,7 @@ class LDMPipeline(torch.nn.Module):
 
 				# x_t-1 -> x_t
 				image = prev_image
-
-				# decode image with vae
+			# decode image with vae
 			image = self.vqvae.decode(image)
 
 			# process image
@@ -107,12 +106,15 @@ class LDMPipeline(torch.nn.Module):
 
 			return image_processed
 	
-	def warmup(self):
+	def warmup(self, num_iter=3):
+		print("Warming up...")
 		tmp = self.num_inference_steps
 		self.num_inference_steps = 2
 		noise = torch.randn((1, 3, 64, 64), dtype=self.unet.dtype, device=self.unet.device)
-		self(noise)
+		for _ in range(num_iter):
+			self(noise)
 		self.num_inference_steps = tmp
+		print("Warmup complete!")
 	
 	@torch.inference_mode()
 	@torch.autocast("cuda")
