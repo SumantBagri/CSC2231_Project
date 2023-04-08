@@ -156,11 +156,11 @@ class JetsonReader(BaseReader):
 
         # Extract the POM and MEM values from each match
         pom_values = [
-            [round(float(match[0])),
-             round(float(match[1])),
-             round(float(match[2]))] for match in matches_pwr
+            [round(float(match[0]), 4),
+             round(float(match[1]), 4),
+             round(float(match[2]), 4)] for match in matches_pwr
         ]
-        mem_values = [round(float(match)) for match in matches_mem]
+        mem_values = [round(float(match), 4) for match in matches_mem]
 
         # Peak POM/MEM values
         pwr_stat.maxvals = [max(col) - pwr_stat.bval for col in zip(*pom_values)]
@@ -177,7 +177,11 @@ class JetsonReader(BaseReader):
         match_mem = re.findall(self.metrics['mem'].pattern, result)
 
         parsed_res = {
-            'pwr' : [round(float(m)/1000,4) for m in match_pwr],
+            'pwr' : [
+            [round(float(match[0]),4),
+             round(float(match[1]),4),
+             round(float(match[2]),4)] for match in match_pwr
+             ],
             'mem' : round(float(match_mem[0]),4)
         }
         for name, stat in self.metrics.items():
