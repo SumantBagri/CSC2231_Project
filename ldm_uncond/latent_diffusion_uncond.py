@@ -2,16 +2,21 @@ import json
 import re
 import torch
 import torch_tensorrt
+import time
 
 from collections import OrderedDict
+from readers import BaseReader
 from .model.unet import UNet2DModel
 from .model.vq import VQModel
 from .model.ddim_scheduler import DDIMScheduler
 
 
 class LDMPipeline(torch.nn.Module):
-	def __init__(self):
+	def __init__(self, reader=BaseReader()):
 		super().__init__()
+
+		# Init reader (for stat collection)
+		self.reader = reader
 
 		# Load model configurations
 		unet_root = "ldm_uncond/ldm-celebahq-256/unet/"
@@ -85,7 +90,9 @@ class LDMPipeline(torch.nn.Module):
 		self.scheduler.set_timesteps(num_inference_steps=self.num_inference_steps)
 
 		with torch.no_grad():
+			# denoising loop
 			image = noise
+			stime = time.time()
 			for t in self.scheduler.timesteps:
 				print(f"Timestep = {t.item()}\r", end="")
 
@@ -96,8 +103,14 @@ class LDMPipeline(torch.nn.Module):
 
 				# x_t-1 -> x_t
 				image = prev_image
+			torch.cuda.synchronize()
+			self.reader.metrics['lat'].maxvals[0] = round(time.time()-stime,4)
+			
 			# decode image with vae
+			stime = time.time()
 			image = self.vqvae.decode(image)
+			torch.cuda.synchronize()
+			self.reader.metrics['lat'].maxvals[1] = round(time.time()-stime,4)
 
 			# process image
 			image_processed = image.permute(0, 2, 3, 1)

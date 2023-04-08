@@ -15,10 +15,10 @@ class Stat:
 
 class BaseReader:
     def __init__(self,
-                 pwr_save_path: str,
-                 mem_save_path: str,
-                 lat_save_path: str,
-                 logpath: str) -> None:
+                 pwr_save_path: str = '',
+                 mem_save_path: str = '',
+                 lat_save_path: str = '',
+                 logpath: str = '') -> None:
         self.log_file_path = logpath
         if os.path.exists(self.log_file_path):
             os.remove(self.log_file_path)
@@ -37,7 +37,8 @@ class BaseReader:
         self.metrics['mem'].fpath = mem_save_path
         self.metrics['lat'].fpath = lat_save_path
 
-        self.metrics['lat'].header = ["RUN", "LAT_VAL"]
+        self.metrics['lat'].maxvals = [-1.,-1.,-1.]
+        self.metrics['lat'].header = ["RUN", "DEN_LAT", "DEC_LAT", "TOTAL_LAT"]
 
     def _parse_data(self) -> list:
         # Open the log file and read its contents
@@ -47,12 +48,11 @@ class BaseReader:
         return log_contents
 
     def start(self) -> None:
-        self.probe()
         self.process = subprocess.Popen(self.cmd.split())
         self.metrics['lat'].bval = time.time()
 
     def stop(self) -> None:
-        self.metrics['lat'].maxvals = [round(time.time() - self.metrics['lat'].bval,4)]
+        self.metrics['lat'].maxvals[2] = round(time.time() - self.metrics['lat'].bval,4)
         self.process.terminate()
         time.sleep(2)
         self._parse_data()

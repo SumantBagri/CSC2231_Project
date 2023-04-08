@@ -59,6 +59,7 @@ class BaseEvaluator:
             # perform profiling
             self.reader.start()
             model(inp)
+            torch.cuda.synchronize()
             self.reader.stop()
             # write to csv files
             self.reader.write_row(i, 'pwr') # write power to file
@@ -77,9 +78,10 @@ class ONNXEvaluator(BaseEvaluator):
         self.providers = providers
 
         self.pad = " "*100
-        print("Loading Inference Session..."+self.pad+"\r",end='')
+        print("Creating Inference Session..."+self.pad+"\r",end='')
+        self.reader.probe()
         self.sess = ort.InferenceSession(mpath, providers=self.providers)
-        print("Inference Session Loaded!"+self.pad)
+        print("Inference Session Created!"+self.pad)
 
     def __del__(self):
         del self.sess
@@ -101,6 +103,7 @@ class ONNXEvaluator(BaseEvaluator):
             # perform profiling
             self.reader.start()
             self.sess.run([],{'input': inp})
+            torch.cuda.synchronize()
             self.reader.stop()
             # write to csv files
             self.reader.write_row(i, 'pwr') # write power to file

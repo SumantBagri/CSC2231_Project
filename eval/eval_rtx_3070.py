@@ -20,10 +20,13 @@ def baseline():
     # Init evaluator
     baseline_evaluator= BaseEvaluator(dev=dev, perf_cls="baseline")
 
+    # Probe before model loading
+    baseline_evaluator.reader.probe()
+
     # Init inputs and model
     DTYPE = torch.float32
     DEVICE = torch.device('cuda')
-    diffusion_pipeline = LDMPipeline().to(device=DEVICE, dtype=DTYPE)
+    diffusion_pipeline = LDMPipeline(reader=baseline_evaluator.reader).to(device=DEVICE, dtype=DTYPE)
 
     noise = torch.randn((1, 3, 64, 64), dtype=DTYPE, device=DEVICE)
 
@@ -43,6 +46,9 @@ def optim1():
     # Init evaluator
     optim1_evaluator= BaseEvaluator(dev=dev, perf_cls="32bit_jit")
 
+    # Probe before model loading
+    optim1_evaluator.reader.probe()
+
     # Init inputs and model
     DTYPE = torch.float32
     DEVICE = torch.device('cuda')
@@ -55,6 +61,7 @@ def optim1():
         optim1_evaluator.evaluate(torchscript_model,noise)
 
     del torchscript_model
+    del optim1_evaluator
     torch.cuda.empty_cache()
 
 ##=============================================================##
@@ -65,6 +72,9 @@ def optim2():
 
     # Init evaluator
     optim2_evaluator= BaseEvaluator(dev=dev, perf_cls="16bit_jit")
+
+    # Probe before model loading
+    optim2_evaluator.reader.probe()
 
     # Init inputs and model
     DTYPE = torch.float16
@@ -78,6 +88,7 @@ def optim2():
         optim2_evaluator.evaluate(torchscript_model,noise)
 
     del torchscript_model
+    del optim2_evaluator
     torch.cuda.empty_cache()
 
 ##=============================================================================================##
@@ -88,7 +99,6 @@ def optim3():
 
     # Init inputs and model
     DTYPE = torch.float32
-    DEVICE = torch.device('cuda')
 
     noise = torch.randn((1, 3, 64, 64), dtype=DTYPE)
 
@@ -112,6 +122,7 @@ def optim3():
 
     # #### Transformer Optimized ONNX
     print("\tTransformer-Optimized ONNX")
+    
     # Init evaluator
     optim3_3 = ONNXEvaluator("output/optim/model_onnx_fp32_cpu_optimized_tf.onnx", dev=dev, perf_cls="onnx_optim_tf")
     optim3_3.evaluate(noise)
@@ -129,16 +140,18 @@ def optim4():
     # Init evaluator
     optim4_evaluator= BaseEvaluator(dev=dev, perf_cls="tensorRT")
 
+    # Probe before model loading
+    optim4_evaluator.reader.probe()
+
     # Init inputs and model
     DTYPE = torch.float16
     DEVICE = torch.device('cuda')
 
     # ### Load optimized UNet
-    optimized_diffusion_pipeline = LDMPipeline()
+    optimized_diffusion_pipeline = LDMPipeline(reader=optim4_evaluator.reader)
 
     optimized_diffusion_pipeline = optimized_diffusion_pipeline.to(device=DEVICE, dtype=DTYPE)
     optimized_diffusion_pipeline.load_optimized_unet("output/optim/uldm_unet_fp16_sim.ts")
-
 
     noise = torch.randn((1, 3, 64, 64), dtype=DTYPE, device=DEVICE)
 
@@ -152,8 +165,8 @@ def optim4():
 # Push metrics to github
 def push():
     try:
-        os.system("git add output/eval_data/")
-        os.system("git commit -m 'Adding evaluation pipeline and notebooks (RTX 3070)'")
+        os.system("git add output/eval_data/rtx_3070*")
+        os.system("git commit -m 'Evaluation datafiles updated (RTX 3070)'")
         os.system("git push")
     except Exception as e:
         print(e)
@@ -166,7 +179,11 @@ if __name__ == "__main__":
     parser.add_argument('-o3', '--optim3', action='store_true', help='Run optim3 function')
     parser.add_argument('-o4', '--optim4', action='store_true', help='Run optim4 function')
     parser.add_argument('-a', '--all', action='store_true', help='Run all functions')
+    parser.add_argument('-gp', '--git-push', action='store_true', help="Push all the output files to github")
     args = parser.parse_args()
+
+    print(args)
+    exit
 
     if args.baseline:
         baseline()
@@ -184,4 +201,6 @@ if __name__ == "__main__":
         optim2()
         optim3()
         optim4()
+    if args.git_push:
+        push()
 
