@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
-import configparser
-import json
+import toml
 import os
 import subprocess
-import torch
 
+os.environ["CUDA_MODULE_LOADING"] = 'LAZY'
+
+import torch
 from ldm_uncond.latent_diffusion_uncond import LDMPipeline
 from evaluation import BaseEvaluator, ONNXEvaluator
 
@@ -36,52 +37,55 @@ def baseline(dev):
     del baseline_evaluator
     torch.cuda.empty_cache()
 
-##======================================##
-## Optimization 1 - JIT Compilation     ##
-##======================================##
-def optim1(dev, infile):
-    print("\n\n\033[4mRunning Optimization 1 - JIT Compilation\033[0m\n\n")
+##=============================================##
+## Optimization 1 - Quantization (16-bit)      ##
+##=============================================##
+def optim1(dev):
+    print("\033[4mRunning Optimization 1 - Quantization (16-bit)\033[0m\n\n")
 
     # Init evaluator
-    optim1_evaluator= BaseEvaluator(dev=dev, perf_cls="32bit_jit")
+    optim1_evaluator= BaseEvaluator(dev=dev, perf_cls="fp16")
 
     # Probe before model loading
     optim1_evaluator.reader.probe()
+
+    # Init inputs and model
+    DTYPE = torch.float16
+    DEVICE = torch.device('cuda')
+    diffusion_pipeline = LDMPipeline(reader=optim1_evaluator.reader).to(device=DEVICE, dtype=DTYPE)
+
+    noise = torch.randn((1, 3, 64, 64), dtype=DTYPE, device=DEVICE)
+
+    # Evaluate optimization-1
+    optim1_evaluator.evaluate(diffusion_pipeline,noise)
+
+    del diffusion_pipeline
+    del optim1_evaluator
+    torch.cuda.empty_cache()
+
+##=============================================##
+## Optimization 2 - JIT Compilation (32-bit)   ##
+##=============================================##
+def optim2(dev):
+    print("\n\n\033[4mRunning Optimization 2 - JIT Compilation (32-bit)\033[0m\n\n")
+
+    # Init evaluator
+    optim2_evaluator= BaseEvaluator(dev=dev, perf_cls="fp32_jit")
+
+    # Probe before model loading
+    optim2_evaluator.reader.probe()
 
     # Init inputs and model
     DTYPE = torch.float32
     DEVICE = torch.device('cuda')
 
     noise = torch.randn((1, 3, 64, 64), dtype=DTYPE, device=DEVICE)
-    torchscript_model = torch.jit.load(infile)
-
-    # Evaluate optimization-1
+    diffusion_pipeline = LDMPipeline(reader=optim2_evaluator.reader).to(device=DEVICE, dtype=DTYPE)
+    diffusion_pipeline.eval()
+    print("Performing JIT trace...")
     with torch.no_grad():
-        optim1_evaluator.evaluate(torchscript_model,noise)
-
-    del torchscript_model
-    del optim1_evaluator
-    torch.cuda.empty_cache()
-
-##=============================================================##
-## Optimization 2 - Quantization (16-bit) + JIT Compilation    ##
-##=============================================================##
-def optim2(dev, infile):
-    print("\n\n\033[4mRunning Optimization 2 - Quantization (16-bit) + JIT Compilation\033[0m\n\n")
-
-    # Init evaluator
-    optim2_evaluator= BaseEvaluator(dev=dev, perf_cls="16bit_jit")
-
-    # Probe before model loading
-    optim2_evaluator.reader.probe()
-
-    # Init inputs and model
-    DTYPE = torch.float16
-    DEVICE = torch.device('cuda')
-
-    noise = torch.randn((1, 3, 64, 64), dtype=DTYPE, device=DEVICE)
-    torchscript_model = torch.jit.load(infile)
-
+        torchscript_model = torch.jit.trace(diffusion_pipeline, noise)
+    
     # Evaluate optimization-2
     with torch.no_grad():
         optim2_evaluator.evaluate(torchscript_model,noise)
@@ -90,11 +94,42 @@ def optim2(dev, infile):
     del optim2_evaluator
     torch.cuda.empty_cache()
 
+##=============================================================##
+## Optimization 3 - Quantization (16-bit) + JIT Compilation    ##
+##=============================================================##
+def optim3(dev):
+    print("\n\n\033[4mRunning Optimization 3 - Quantization (16-bit) + JIT Compilation\033[0m\n\n")
+
+    # Init evaluator
+    optim3_evaluator= BaseEvaluator(dev=dev, perf_cls="fp16_jit")
+
+    # Probe before model loading
+    optim3_evaluator.reader.probe()
+
+    # Init inputs and model
+    DTYPE = torch.float16
+    DEVICE = torch.device('cuda')
+
+    noise = torch.randn((1, 3, 64, 64), dtype=DTYPE, device=DEVICE)
+    diffusion_pipeline = LDMPipeline(reader=optim3_evaluator.reader).to(device=DEVICE, dtype=DTYPE)
+    diffusion_pipeline.eval()
+    print("Performing JIT trace...")
+    with torch.no_grad():
+        torchscript_model = torch.jit.trace(diffusion_pipeline, noise)
+    
+    # Evaluate optimization-3
+    with torch.no_grad():
+        optim3_evaluator.evaluate(torchscript_model,noise)
+
+    del torchscript_model
+    del optim3_evaluator
+    torch.cuda.empty_cache()
+
 ##=============================================================================================##
-## Optimization 3 - ONNX Runtime (Graph optimizations + Transformer specific optimizations)    ##
+## Optimization 4 - ONNX Runtime (Graph optimizations + Transformer specific optimizations)    ##
 ##=============================================================================================##
-def optim3(dev, infile):
-    print("\n\n\033[4mRunning Optimization 3 - ONNX Runtime (Graph optimizations + Transformer specific optimizations)\033[0m\n\n")
+def optim4(dev, infile, providers=["CPUExecutionProvider"]):
+    print("\n\n\033[4mRunning Optimization 4 - ONNX Runtime (Graph optimizations + Transformer specific optimizations)\033[0m\n\n")
 
     # Init inputs and model
     DTYPE = torch.float32
@@ -103,32 +138,30 @@ def optim3(dev, infile):
 
     # #### Optimized ONNX
     # Init evaluator
-    optim3_2 = ONNXEvaluator(infile, dev=dev, perf_cls="onnx_optim")
+    optim4_evaluator = ONNXEvaluator(infile, dev=dev, perf_cls="onnx_optim", providers=providers)
     with torch.no_grad():
-        optim3_2.evaluate(noise)
+        optim4_evaluator.evaluate(noise)
 
-    del optim3_2
+    del optim4_evaluator
 
 ##=============================================================================================##
-## Optimization 4 - TensorRT (Layer & Tensor fusion + Quantization (16-bit) + JIT Compilation) ##
+## Optimization 5 - TensorRT (Layer & Tensor fusion + Quantization (16-bit) + JIT Compilation) ##
 ##=============================================================================================##
-def optim4(dev, infile):
+def optim5(dev, infile):
     print("\n\n\033[4mRunning Optimization 4 - TensorRT (Layer & Tensor fusion + Quantization (16-bit) + JIT Compilation)\033[0m\n\n")
 
-    os.environ["CUDA_MODULE_LOADING"] = 'LAZY'
-
     # Init evaluator
-    optim4_evaluator= BaseEvaluator(dev=dev, perf_cls="tensorRT")
+    optim5_evaluator= BaseEvaluator(dev=dev, perf_cls="tensorRT")
 
     # Probe before model loading
-    optim4_evaluator.reader.probe()
+    optim5_evaluator.reader.probe()
 
     # Init inputs and model
     DTYPE = torch.float16
     DEVICE = torch.device('cuda')
 
     # ### Load optimized UNet
-    optimized_diffusion_pipeline = LDMPipeline(reader=optim4_evaluator.reader)
+    optimized_diffusion_pipeline = LDMPipeline(reader=optim5_evaluator.reader)
 
     optimized_diffusion_pipeline = optimized_diffusion_pipeline.to(device=DEVICE, dtype=DTYPE)
     optimized_diffusion_pipeline.load_optimized_unet(infile)
@@ -136,10 +169,10 @@ def optim4(dev, infile):
     noise = torch.randn((1, 3, 64, 64), dtype=DTYPE, device=DEVICE)
 
     # Evaluate the baseline
-    optim4_evaluator.evaluate(optimized_diffusion_pipeline,noise)
+    optim5_evaluator.evaluate(optimized_diffusion_pipeline,noise)
 
     del optimized_diffusion_pipeline
-    del optim4_evaluator
+    del optim5_evaluator
     torch.cuda.empty_cache()
 
 # Push metrics to github
@@ -187,22 +220,27 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Read config file
-    config = configparser.ConfigParser()
-    config.read(args.config)
+    config = toml.load(args.config)
 
     # Print the config file to stdout
+    print("========================================================")
     print("LOADED CONFIGURATION FILE:")
-    config_dict = {section: dict(config.items(section)) for section in config.sections()}
-    print(json.dumps(config_dict, indent=4))
+    print("========================================================")
+    print(toml.dumps(config))
+    print("========================================================")
 
     # Parse arguments from config file
-    baseline = config.getboolean('arguments', 'baseline')
-    o1_file = config.get('arguments', 'optim1', fallback=None)
-    o2_file = config.get('arguments', 'optim2', fallback=None)
-    o3_file = config.get('arguments', 'optim3', fallback=None)
-    o4_file = config.get('arguments', 'optim4', fallback=None)
-    all_functions = config.getboolean('arguments', 'all')
-    git_push = config.getboolean('arguments', 'git_push')
+    run_baseline = config['arguments'][0]['baseline']
+    run_o1 = config['arguments'][0]['optim1']
+    run_o2 = config['arguments'][0]['optim2']
+    run_o3 = config['arguments'][0]['optim3']
+    o4_file = config['arguments'][0]['optim4']
+    o5_file = config['arguments'][0]['optim5']
+    all_functions = config['arguments'][0]['all']
+    git_push = config['arguments'][0]['git_push']
+
+    # Parse the provider information
+    providers = [(p.pop('name'),p) for p in config['providers']]
 
     if not os.environ.get('CUDA_LAUNCH_BLOCKING'):
         print("\nCUDA launch environment varible not defined!")
@@ -220,22 +258,25 @@ if __name__ == "__main__":
     print("========================================================")
 
     # Run pipeline based on arguments
-    if baseline:
+    if run_baseline:
         baseline(dev)
-    if o1_file:
-        optim1(dev, o1_file)
-    if o2_file:
-        optim2(dev, o2_file)
-    if o3_file:
-        optim3(dev, o3_file)
+    if run_o1:
+        optim1(dev)
+    if run_o2:
+        optim2(dev)
+    if run_o3:
+        optim3(dev)
     if o4_file:
-        optim4(dev, o4_file)
+        optim4(dev, o4_file, providers)
+    if o5_file:
+        optim5(dev, o5_file)
     if all_functions:
         baseline()
-        optim1(dev, o1_file)
-        optim2(dev, o2_file)
-        optim3(dev, o3_file)
-        optim4(dev, o4_file)        
+        optim1(dev)
+        optim2(dev)
+        optim3(dev)
+        optim4(dev, o4_file, providers)
+        optim5(dev, o5_file)     
     if git_push:
         push(dev)
     
