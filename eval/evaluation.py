@@ -2,7 +2,7 @@ import onnxruntime as ort
 import os
 import torch
 
-from eval.readers import JetsonReader, RTXReader
+from readers import JetsonReader, RTXReader
 
 class BaseEvaluator:
     def __init__(self, 

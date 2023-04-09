@@ -2,6 +2,7 @@
 
 import argparse
 import configparser
+import json
 import os
 import subprocess
 import torch
@@ -189,6 +190,11 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
     config.read(args.config)
 
+    # Print the config file to stdout
+    print("LOADED CONFIGURATION FILE:")
+    config_dict = {section: dict(config.items(section)) for section in config.sections()}
+    print(json.dumps(config_dict, indent=4))
+
     # Parse arguments from config file
     baseline = config.getboolean('arguments', 'baseline')
     o1_file = config.get('arguments', 'optim1', fallback=None)
@@ -199,8 +205,9 @@ if __name__ == "__main__":
     git_push = config.getboolean('arguments', 'git_push')
 
     if not os.environ.get('CUDA_LAUNCH_BLOCKING'):
-        print("Inference script should be run as:")
-        print("\t$ CUDA_LAUNCH_BLOCKING=1 ./run_evaluation.py [OPTIONS]")
+        print("\nCUDA launch environment varible not defined!")
+        print("Inference script should be run from the project root directory as:")
+        print("\t$ CUDA_LAUNCH_BLOCKING=1 ./eval/run_evaluation.py -c eval/config.toml")
         exit(1)
 
     dev = get_device()
