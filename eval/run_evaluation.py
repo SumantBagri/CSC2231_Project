@@ -229,6 +229,10 @@ if __name__ == "__main__":
     print(toml.dumps(config))
     print("========================================================")
 
+    user_decision = input("Proceed with evaluations? (Y/n)")
+    if user_decision.lower() == 'n':
+        exit(0)
+
     # Parse arguments from config file
     run_baseline = config['arguments'][0]['baseline']
     run_o1 = config['arguments'][0]['optim1']
