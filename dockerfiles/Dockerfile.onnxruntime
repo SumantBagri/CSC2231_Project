@@ -9,5 +9,8 @@ RUN wget --quiet --show-progress --progress=bar:force:noscroll --no-check-certif
     pip3 install --no-cache-dir --verbose ${ORT_WHL} && \
     rm ${ORT_WHL}
 
+# Install toml
+RUN pip3 install toml
+
 # Set DEVICE environment
 ENV DEVICE 'JETSON_NANO'
