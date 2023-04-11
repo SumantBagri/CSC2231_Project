@@ -1,11 +1,10 @@
 import json
 import re
 import torch
-import torch_tensorrt
 import time
 
 from collections import OrderedDict
-from readers import BaseReader
+from eval.readers import BaseReader
 from .model.unet import UNet2DModel
 from .model.vq import VQModel
 from .model.ddim_scheduler import DDIMScheduler

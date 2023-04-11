@@ -214,6 +214,13 @@ def get_device():
 
 
 if __name__ == "__main__":
+
+    if not os.environ.get('CUDA_LAUNCH_BLOCKING'):
+        print("\nCUDA launch environment varible not defined!")
+        print("Inference script should be run from the project root directory as:")
+        print("\t$ CUDA_LAUNCH_BLOCKING=1 ./eval/run_evaluation.py -c eval/config.toml")
+        exit(1)
+
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description='Runs evaluation pipeline')
     parser.add_argument('-c', '--config', type=str, help='Path to config file')
@@ -246,11 +253,6 @@ if __name__ == "__main__":
     # Parse the provider information
     providers = [(p.pop('name'),p) for p in config['providers']]
 
-    if not os.environ.get('CUDA_LAUNCH_BLOCKING'):
-        print("\nCUDA launch environment varible not defined!")
-        print("Inference script should be run from the project root directory as:")
-        print("\t$ CUDA_LAUNCH_BLOCKING=1 ./eval/run_evaluation.py -c eval/config.toml")
-        exit(1)
 
     dev = get_device()
     if not dev:
