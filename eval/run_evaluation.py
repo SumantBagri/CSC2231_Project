@@ -80,11 +80,13 @@ def optim2(dev):
     DEVICE = torch.device('cuda')
 
     noise = torch.randn((1, 3, 64, 64), dtype=DTYPE, device=DEVICE)
-    diffusion_pipeline = LDMPipeline(reader=optim2_evaluator.reader).to(device=DEVICE, dtype=DTYPE)
-    diffusion_pipeline.eval()
-    print("Performing JIT trace...")
-    with torch.no_grad():
-        torchscript_model = torch.jit.trace(diffusion_pipeline, noise)
+    # diffusion_pipeline = LDMPipeline(reader=optim2_evaluator.reader).to(device=DEVICE, dtype=DTYPE)
+    # diffusion_pipeline.eval()
+    # print("Performing JIT trace...")
+    # with torch.no_grad():
+    #     torchscript_model = torch.jit.trace(diffusion_pipeline, noise)
+    torchscript_model = torch.jit.load('output/optim/uldm_jit_fp32.ptl')
+    torchscript_model.to(dtype=DTYPE, device=DEVICE)
     
     # Evaluate optimization-2
     with torch.no_grad():
@@ -111,12 +113,14 @@ def optim3(dev):
     DEVICE = torch.device('cuda')
 
     noise = torch.randn((1, 3, 64, 64), dtype=DTYPE, device=DEVICE)
-    diffusion_pipeline = LDMPipeline(reader=optim3_evaluator.reader).to(device=DEVICE, dtype=DTYPE)
-    diffusion_pipeline.eval()
-    print("Performing JIT trace...")
-    with torch.no_grad():
-        torchscript_model = torch.jit.trace(diffusion_pipeline, noise)
-    
+    # diffusion_pipeline = LDMPipeline(reader=optim3_evaluator.reader).to(device=DEVICE, dtype=DTYPE)
+    # diffusion_pipeline.eval()
+    # print("Performing JIT trace...")
+    # with torch.no_grad():
+    #     torchscript_model = torch.jit.trace(diffusion_pipeline, noise)
+    torchscript_model = torch.jit.load('output/optim/uldm_jit_fp16.ptl')
+    torchscript_model.to(dtype=DTYPE, device=DEVICE)
+
     # Evaluate optimization-3
     with torch.no_grad():
         optim3_evaluator.evaluate(torchscript_model,noise)
