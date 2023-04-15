@@ -50,9 +50,40 @@ COPY wheels/tensorrt-8.2.2.1-cp36-none-linux_aarch64.whl /tmp/
 
 RUN pip3 install /tmp/tensorrt-8.2.2.1-cp36-none-linux_aarch64.whl 
 
+# Install memory_profiler
+
+RUN pip3 install memory_profiler
+
+# Install torch-tensorrt
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+	openjdk-8-jre openjdk-8-jdk && \
+   rm -rf /var/lib/apt/lists/* \
+   && apt-get clean
+
+COPY bin/bazel /usr/local/bin/
+
+COPY TensorRT/ /tmp/TensorRT/
+
+RUN cd /tmp/TensorRT/py/ && python3 setup.py bdist_wheel --use-cxx11-abi
+
+RUN pip3 install /tmp/TensorRT/py/dist/*.whl
+
+ENV PATH /usr/local/lib/python3.6/dist-packages/torch_tensorrt/bin/:${PATH}
+
+ENV LD_LIBRARY_PATH /usr/local/lib/python3.6/dist-packages/torch/lib/:${LD_LIBRARY_PATH}
+
+# Copy tegrastats
+COPY bin/tegrastats /usr/bin/
+
+# Cleanup
+RUN rm -rf /tmp/*
+
 # Expose Jupyter port & cmd
 EXPOSE 8888
 
 RUN mkdir -p /opt/project
+
+WORKDIR /opt/project
 
 CMD jupyter lab --ip 0.0.0.0 --port 8888 --allow-root  --no-browser --notebook-dir=/opt/project &> /var/log/jupyter.log && echo allow 10 sec for JupyterLab to start @ http://$(hostname -I | cut -d' ' -f1):8888 \(password ${JUPYTER_PASSWORD}\) && echo JupterLab logging location:  /var/log/jupyter.log  \(inside the container\) && /bin/bash

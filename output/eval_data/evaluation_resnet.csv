@@ -1,2 +1,0 @@
-min latency (ms),max latency (ms),mean latency (ms),median latency (ms),99% latency (ms),cpu mem usage (MiB),gpu mem usage (MiB),POM_5V_IN max (mW),POM_5V_GPU max (mW),POM_5V_CPU max (mW),POM_5V_IN avg (mW),POM_5V_GPU avg (mW),POM_5V_CPU avg (mW)
-2007.81,2056.3,2032.4,2035.51,2056.3,140,2487,5206,3267,1262,4437,2231,407

@@ -68,10 +68,8 @@ class DDIMScheduler:
         # setable values
         self.num_inference_steps = None
         self.timesteps = (
-            torch.fliplr(torch.unsqueeze(torch.arange(0, num_train_timesteps), 0))
-            .squeeze()
-            .to(dtype=torch.int64)
-        )
+            torch.arange(num_train_timesteps-1, -1, -1)
+        ).to(dtype=torch.int64)
 
     def scale_model_input(
         self, sample: torch.FloatTensor, timestep: Optional[int] = None
@@ -108,14 +106,7 @@ class DDIMScheduler:
         step_ratio = self.num_train_timesteps // self.num_inference_steps
         # creates integer timesteps by multiplying by ratio
         # casting to int to avoid issues when num_inference_step is power of 3
-        timesteps = (
-            torch.fliplr(
-                torch.unsqueeze(torch.arange(0, num_inference_steps) * step_ratio, 0)
-            )
-            .squeeze()
-            .round()
-            .to(dtype=torch.int64)
-        )
+        timesteps = (torch.arange(num_inference_steps-1, -1, -1) * step_ratio).to(dtype=torch.int64)
         self.timesteps = timesteps.to(device)
         self.timesteps += self.steps_offset
 

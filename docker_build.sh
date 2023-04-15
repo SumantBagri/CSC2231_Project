@@ -1,1 +1,1 @@
-scripts/docker_build.sh
+scripts/docker/docker_build.sh
